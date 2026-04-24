@@ -93,20 +93,27 @@ with a simplified IO-cost term.
 seer/
 ├── PROJECT_PLAN.md           # detailed research plan
 ├── TODO.md                   # working task list
-├── code/
+├── seer/                     # Python package
 │   ├── lap/                  # Learned Attention Predictor (model + training)
 │   ├── trace/                # attention-trace collection & parsing
 │   └── eval/                 # benchmark runner, baselines, policies
 ├── experiments/
-│   ├── e1_predictability/    # §6.1 — can attention be predicted?
+│   ├── e1_predictability/    # §6.1 — can attention be predicted?  [GO/NO-GO]
 │   ├── e2_pareto/            # §6.2 — quality–budget Pareto frontier
 │   ├── e3_throughput/        # §6.3 — throughput at iso-quality
 │   ├── e4_arch/              # §6.4 — predictor architecture ablation
 │   ├── e6_policy/            # §6.4 — eviction-only / prefetch-only / joint
 │   └── e7_generalization/    # §6.5 — cross-model transfer
-├── data/                     # (gitignored) traces, checkpoints
+├── tests/                    # pytest suite
+├── data/                     # (gitignored) traces
+├── checkpoints/              # (gitignored) model ckpts
+├── results/                  # (gitignored) benchmark outputs
 ├── paper/                    # LaTeX source (NeurIPS template)
-└── notes/                    # design notes, related-work reading log
+├── notes/                    # design notes, related-work reading log
+├── pyproject.toml            # package + tool config
+├── requirements.txt
+├── Makefile
+└── LICENSE
 ```
 
 ---
@@ -122,16 +129,13 @@ seer/
 ```bash
 conda create -n seer python=3.11 -y
 conda activate seer
-pip install -r requirements.txt
-# core deps: torch, transformers, vllm, datasets, onnx, onnxruntime-gpu, ...
+make install       # == pip install -r requirements.txt && pip install -e .
 ```
 
 ### Collect attention traces
 
 ```bash
-# dump per-block attention statistics during inference
-SEER_DUMP_TRACE=1 \
-python -m code.trace.collect \
+python -m seer.trace.collect \
     --model meta-llama/Meta-Llama-3-8B-Instruct \
     --dataset ruler \
     --context_lengths 4096 8192 16384 \
@@ -142,18 +146,23 @@ python -m code.trace.collect \
 ### Train LAP
 
 ```bash
-python -m code.lap.train \
+python -m seer.lap.train \
     --traces data/traces/llama3-8b \
     --model tiny_mlp \
     --history 32 \
     --horizons 1 4 16 64 \
-    --out checkpoints/lap_llama3_8b.onnx
+    --out checkpoints/lap_llama3_8b.pt
+
+# Export to ONNX for low-latency inference inside the policy loop
+python -m seer.lap.export \
+    --ckpt checkpoints/lap_llama3_8b.pt \
+    --out  checkpoints/lap_llama3_8b.onnx
 ```
 
 ### Run a benchmark
 
 ```bash
-python -m code.eval.runner \
+python -m seer.eval.runner \
     --model meta-llama/Meta-Llama-3-8B-Instruct \
     --policy seer --lap_ckpt checkpoints/lap_llama3_8b.onnx \
     --benchmark longbench \
@@ -161,8 +170,15 @@ python -m code.eval.runner \
     --out results/longbench_seer_b20.json
 ```
 
-The same runner supports `--policy {full, streaming, h2o, snapkv, quest, recency, random}`
+The same runner supports `--policy {full, streaming, h2o, snapkv, recency, random}`
 for direct comparison.
+
+### Run the GO/NO-GO predictability study (E1)
+
+```bash
+bash experiments/e1_predictability/run.sh
+# verdict lands in results/predictability.json
+```
 
 ---
 

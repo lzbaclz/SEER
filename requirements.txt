@@ -1,0 +1,35 @@
+# Core ML
+torch>=2.2
+transformers>=4.40
+datasets>=2.19
+accelerate>=0.30
+
+# Inference engine (optional for full integration; tracing works without)
+# vllm>=0.5.0   # uncomment if running end-to-end with vLLM
+
+# Data
+numpy>=1.24
+pandas>=2.1
+pyarrow>=15.0
+scikit-learn>=1.3
+
+# Model export / deployment
+onnx>=1.15
+onnxruntime-gpu>=1.17  # switch to `onnxruntime` for CPU-only
+
+# Training utilities
+tqdm>=4.66
+pyyaml>=6.0
+wandb>=0.17  # optional; code falls back to stdout
+
+# Metrics
+rouge-score>=0.1.2
+nltk>=3.8
+
+# Plotting
+matplotlib>=3.8
+seaborn>=0.13
+
+# Testing / lint
+pytest>=8.0
+ruff>=0.4
