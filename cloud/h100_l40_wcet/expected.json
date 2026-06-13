@@ -1,0 +1,21 @@
+{
+  "_comment": "A100 SXM4-80GB reference numbers, taken from the in-repo experiments/eE_lap_wcet/results/ JSONs. verify.py shows the new SKU's measurements alongside these so a cloud-run reviewer can sanity-check the kit. All percentiles are µs, n_reps=3000, warmup=200.",
+  "A100_SXM4-80GB": {
+    "tiny_mlp_trt_b256":     {"p50_us":  13.3, "p99_us":  18.4, "p999_us":  20.5},
+    "tiny_mlp_trt_b1024":    {"p50_us":  13.3, "p99_us":  19.5, "p999_us":  25.6},
+    "tiny_mlp_trt_b4096":    {"p50_us":  26.6, "p99_us":  28.7, "p999_us":  33.8},
+    "tiny_mlp_trt_b16384":   {"p50_us":  63.5, "p99_us":  66.6, "p999_us":  71.7},
+    "tiny_mlp_trt_fp16_b4096": {"p50_us": 23.6, "p99_us":  26.6, "p999_us":  31.7},
+    "tiny_mlp_onnx_b256":    {"p50_us":  83.0, "p99_us":  91.6, "p999_us": 100.0},
+    "tiny_mlp_onnx_b1024":   {"p50_us":  93.5, "p99_us": 107.0, "p999_us": 125.5},
+    "tiny_mlp_onnx_b4096":   {"p50_us": 163.5, "p99_us": 175.4, "p999_us": 212.8},
+    "tiny_mlp_torch_b256":   {"p50_us":  75.8, "p99_us":  84.0, "p999_us":  95.2},
+    "tiny_mlp_torch_b1024":  {"p50_us":  75.8, "p99_us":  82.9, "p999_us":  96.3},
+    "tiny_mlp_torch_b4096":  {"p50_us":  97.3, "p99_us": 103.4, "p999_us": 108.6},
+    "tiny_mlp_torch_b16384": {"p50_us": 244.7, "p99_us": 262.1, "p999_us": 268.3},
+    "block_rnn_torch_b4096":         {"p50_us": 1432.6, "p99_us": 1480.7, "p999_us": 1873.4},
+    "block_transformer_torch_b4096": {"p50_us": 4297.7, "p99_us": 4452.4, "p999_us": 4753.4}
+  },
+  "_budget_us": 200.0,
+  "_headline":  ["tiny_mlp", "trt", 4096]
+}

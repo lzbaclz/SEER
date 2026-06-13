@@ -1,0 +1,97 @@
+From <PENDING> Mon Sep 1 00:00:00 2025
+From: SEER contributors <noreply@anthropic.com>
+Date: <PENDING>
+Subject: [PATCH] R31/cycle-2 hot-path partial-materialisation hook (A2)
+ SKELETON
+
+R31 advisor cycle-2 (ATC 2027) prototype scaffold.  This is the
+**design skeleton** for the A2 binding described in
+docs/hot_path_prototype_design.md.  It is NOT a working patch:
+applying it to vLLM 0.8.5.post1 will not compile because the
+referenced symbols (`KVConnector_V1.partial_materialisation_order`,
+`_seer_connector`, `_deadline_slack_us`) do not yet exist on the
+vLLM side.  The Python decision router that this hook will call
+is `seer/integration/hot_path_router.py`, and its semantic
+contract is pinned by `tests/test_hot_path_router.py`.
+
+When the cycle-2 engineering work begins, this skeleton becomes
+the starting point for a real `0002-hot-path-allocation-hook.patch`.
+Drop the `.skeleton` suffix once the patch compiles and applies.
+
+---
+
+ vllm/v1/core/kv_cache_manager.py | 30 ++++++++++++++++++++++++++++--
+ 1 file changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/vllm/v1/core/kv_cache_manager.py b/vllm/v1/core/kv_cache_manager.py
+--- a/vllm/v1/core/kv_cache_manager.py
++++ b/vllm/v1/core/kv_cache_manager.py
+@@ HOOK_INSERTION_SITE @@
+     def get_computed_blocks(
+         self,
+         request: "Request",
+     ) -> tuple[list["KVCacheBlock"], int]:
+         """Get the computed (cached) blocks for the request, plus
+         the number of tokens covered.  Updated by the R31/cycle-2
+         hot-path partial-materialisation hook (A2):
+         if a connector is registered and the request has matched
+         prefix-cache blocks, SEER decides which subset to actually
+         materialise to HBM under the per-step slack budget.
+         """
+-        matched_blocks, n_tokens = self._compute_prefix_cache_hit(request)
+-        return matched_blocks, n_tokens
++        matched_blocks, n_tokens = self._compute_prefix_cache_hit(request)
++        if self._seer_connector is not None and len(matched_blocks) > 0:
++            slack_us = self._deadline_slack_us(request)
++            order = self._seer_connector.partial_materialisation_order(
++                request_id=request.request_id,
++                matched_blocks=[b.block_id for b in matched_blocks],
++                slack_budget_us=slack_us,
++            )
++            # Truncate to what the slack budget allows.  The decision
++            # router returns an order; vLLM truncates here.
++            max_blocks = self._seer_connector.max_blocks_under_budget(
++                slack_us)
++            kept = [matched_blocks[i] for i in order[:max_blocks]]
++            matched_blocks = kept
++            # The dropped suffix is rebuilt on the decode path; this
++            # is the hot-path binding that the §VI.D 6-way tie
++            # diagnosis predicts will close once active.
++        return matched_blocks, n_tokens
+
+---
+
+Implementation notes (for the cycle-2 engineer):
+
+1. The `_deadline_slack_us(request)` helper does not yet exist on
+   `KVCacheManager`. Add it as:
+
+       def _deadline_slack_us(self, request) -> float:
+           # request.slo_deadline_us minus profiling counters
+           # (forward_us / attn_us / ffn_us / lap_us).  vLLM exposes
+           # these via `request.iter_stats.last_forward_us` etc.
+           ...
+
+2. `self._seer_connector` is an `Optional[HotPathRouter]` injected by
+   the existing `KVConnector_V1` plug-in mechanism.  Wire it up in
+   `__init__`:
+
+       self._seer_connector = getattr(
+           kv_connector, "hot_path_router", None)
+
+3. The truncation step is racy if vLLM later re-tries the prefix-
+   cache hit on a fallback path.  Guard with an assert at the
+   patched call site.
+
+4. The chat-miss delta this patch is expected to produce is the
+   one §VI.D currently labels "diagnosed non-binding".  When this
+   patch is active, the paper text in §VI.D + §VIII must be
+   revised to retract the "non-binding" framing (see the cycle-2
+   pre-flight checklist in `docs/hot_path_prototype_design.md`).
+
+---
+
+This skeleton is intentionally kept under `vllm_patches/` next to
+the working `0001-add-eviction-order-hook.patch` so the cycle-2
+engineer has both the prior art (0001) and the design contract
+(this file) in one place.

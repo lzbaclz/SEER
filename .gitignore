@@ -1,0 +1,124 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual envs
+venv/
+.venv/
+env/
+ENV/
+
+# Data, checkpoints, logs, and generated outputs
+data/
+checkpoints/
+logs/
+results/
+experiments/**/results/
+experiments/**/results_*/
+experiments/**/figures/preview/
+experiments/**/*.png
+wandb/
+outputs/
+*.pt
+*.pth
+
+# Local model weights (large; mirror of /public/model_zoo, not for VCS)
+local_models/
+*.onnx
+*.parquet
+*.npy
+*.npz
+*.pkl
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.local
+
+# Paper / writing workspace (kept out of the code repository)
+paper/
+Paper_style_extract/
+notes/
+rtss_best_papers_2022_2025/
+RTSS_*.docx
+SUBMISSION_GUIDE.md
+PROJECT_PLAN.md
+ARTIFACT_MANIFEST*.md
+TODO.md
+todo_*.md
+work*.md
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.synctex.gz
+paper/*.toc
+paper/*.fdb_latexmk
+paper/*.fls
+paper/**/*.aux
+paper/**/*.fdb_latexmk
+paper/**/*.fls
+paper/**/*.log
+paper/**/*.bbl
+paper/**/*.blg
+paper/**/*.out
+texput.log
+
+# Local agent / tool state
+.claude/
+FETCH_HEAD
+
+# Source bundles (regenerable from git)
+seer_code.tar.gz
+
+# Local reference PDFs and archived code not published in this repo
+rtss_best_papers_2022_2025/
+legacy/
+
+# Ad-hoc experiment logs
+experiments/chain_*.log
+experiments/eA_tail_latency/q9_warmup*.log
+experiments/eA_tail_latency/p1_measured_dma.log
+
+# Temp .bak / scratch files
+*.bak
+*~
+*.orig
+
+# Local paper follow-up workspaces
+iccd/
+paper_atc/
+paper_rtss/
+todo_iccd.md
+read_lat_bw*.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Local paper working copies / backups
+paper/*copy*
+paper/backup_*
+paper/*.before-cleanup
+paper/supplementary_build/

@@ -1,0 +1,141 @@
+"""Reactive lag vs LAP horizon (R7-US-W4 / China-W6).
+
+The K=1 reactive-lag witness shows raw-attention top-K achieves
+$\\tau=0$ on every $\\sigma_\\text{shift}$, beating SEER's
+$\\tau=3$. The R7 reviewer correctly notes that LAP's claimed
+advantage is at horizon $K\\ge 2$ (the LAP predicts persistence at
+future steps $h{\\in}\\{1,4,16,64\\}$), and that the K=1 cell where
+LAP loses does NOT discriminate the learned signal.
+
+This script sweeps the SEER policy's `horizon_idx` over
+{0,1,2,3} -> LAP target horizons {h1,h4,h16,h64} and re-runs the
+existing reactive_lag harness. Raw-attn is by definition K=1
+(current step only). H2O cumulative-attention is also K=1 / past
+only. If SEER's $\\tau$ shrinks below raw-attn's $\\tau{=}0$ at any
+horizon, the LAP-specificity claim is rescued; if it does not,
+the claim should be honestly retracted to the existing
+class-separation statement.
+
+Output: `reactive_lag_horizons.json`, `reactive_lag_horizons.tex`.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+# Reuse the existing harness internals.
+from experiments.eD_adversarial.reactive_lag import (
+    _run_one, _build_policies, _RawAttentionPolicy)
+from seer.policy.baselines import H2OCumulativePolicy
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--sigma_shifts", nargs="+", type=float,
+                    default=[0.25, 0.50, 0.75, 1.0])
+    ap.add_argument("--n_seeds", type=int, default=3)
+    ap.add_argument("--N", type=int, default=64)
+    ap.add_argument("--T", type=int, default=1000)
+    ap.add_argument("--budget", type=int, default=16)
+    ap.add_argument("--lap_ckpt",
+                    default="checkpoints/lap_prod_tiny.pt")
+    ap.add_argument("--horizons", nargs="+", type=int,
+                    default=[0, 1, 2, 3],
+                    help="LAP horizon indices to sweep "
+                         "(0=h1, 1=h4, 2=h16, 3=h64)")
+    ap.add_argument("--out_dir",
+                    default="experiments/eD_adversarial/results")
+    args = ap.parse_args()
+
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build raw_attn (K=1) reference once.
+    raw_attn = _RawAttentionPolicy()
+
+    print(f"[reactive-lag-horizons] N={args.N} T={args.T} "
+          f"budget={args.budget} shifts={args.sigma_shifts} "
+          f"seeds={args.n_seeds} horizons={args.horizons}")
+
+    summary = {
+        "horizon_targets": {0: "h1", 1: "h4", 2: "h16", 3: "h64"},
+        "sigma_shifts": args.sigma_shifts,
+        "n_seeds": args.n_seeds,
+        "results": [],
+    }
+
+    for sigma in args.sigma_shifts:
+        row = {"sigma_shift": sigma}
+        # raw_attn (K=1 reference)
+        lags = []
+        for seed in range(args.n_seeds):
+            lags.append(_run_one(raw_attn, args.N, args.T, args.budget,
+                                 sigma, seed=seed))
+        row["raw_attn_K1_lag_mean"] = sum(lags) / len(lags)
+
+        # H2O cumulative parity variant (R7-US-W5)
+        lags = []
+        for seed in range(args.n_seeds):
+            h2o_cum = H2OCumulativePolicy(hh_frac=0.5)
+            lags.append(_run_one(h2o_cum, args.N, args.T, args.budget,
+                                 sigma, seed=seed))
+        row["h2o_cumulative_lag_mean"] = sum(lags) / len(lags)
+        row["h2o_cumulative_lag_min"] = min(lags)
+        row["h2o_cumulative_lag_max"] = max(lags)
+
+        # SEER at each horizon
+        for h in args.horizons:
+            policies = dict(_build_policies(args.lap_ckpt, random_seed=0))
+            seer = policies["seer"]
+            seer.horizon_idx = h
+            lags = []
+            for seed in range(args.n_seeds):
+                # Rebuild seer per-seed to reset its rolling buffers.
+                policies = dict(_build_policies(args.lap_ckpt,
+                                                random_seed=seed))
+                seer = policies["seer"]
+                seer.horizon_idx = h
+                lags.append(_run_one(seer, args.N, args.T, args.budget,
+                                     sigma, seed=seed))
+            row[f"seer_h{h}_lag_mean"] = sum(lags) / len(lags)
+            row[f"seer_h{h}_lag_min"] = min(lags)
+            row[f"seer_h{h}_lag_max"] = max(lags)
+
+        print(f"[reactive-lag-horizons] sigma={sigma:.2f}: "
+              f"raw_attn(K=1)={row['raw_attn_K1_lag_mean']:.1f}  "
+              f"h2o_cum={row['h2o_cumulative_lag_mean']:.1f}  "
+              + " ".join(f"seer_h{h}={row[f'seer_h{h}_lag_mean']:.1f}"
+                         for h in args.horizons))
+        summary["results"].append(row)
+
+    out_json = out_dir / "reactive_lag_horizons.json"
+    out_json.write_text(json.dumps(summary, indent=2, default=float))
+    print(f"[reactive-lag-horizons] wrote {out_json}")
+
+    # TeX table: one row per sigma, columns raw_attn + seer_h{0..3}.
+    lines = [
+        "% Generated by reactive_lag_horizons.py (R7-US-W4).",
+        "% Reactive lag vs LAP horizon. raw_attn is K=1 by construction.",
+        r"\begin{tabular}{c|c|cccc}",
+        r"\toprule",
+        r"$\sigma_\text{shift}$ & raw\_attn $K{=}1$ & "
+        r"\textsc{Seer} $h_1$ & $h_4$ & $h_{16}$ & $h_{64}$ \\",
+        r"\midrule",
+    ]
+    for r in summary["results"]:
+        cells = [f"${r['sigma_shift']:.2f}$",
+                 f"${r['raw_attn_K1_lag_mean']:.1f}$"]
+        for h in args.horizons:
+            cells.append(f"${r[f'seer_h{h}_lag_mean']:.1f}$")
+        lines.append(" & ".join(cells) + r" \\")
+    lines.extend([r"\bottomrule", r"\end{tabular}"])
+    out_tex = out_dir / "reactive_lag_horizons.tex"
+    out_tex.write_text("\n".join(lines) + "\n")
+    print(f"[reactive-lag-horizons] wrote {out_tex}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,64 @@
+# R28 advisor: frozen config for the §VI.D eF path-β4-scaled sweep.
+#
+# This YAML mirrors the env-var defaults baked into
+# `experiments/eF_mixed_slo/scripts/run_path_beta4_scaled_sweep.sh`.
+# It exists so reviewers / collaborators can audit the exact knob
+# set used to produce results_vllm_path_beta4_scaled/ without having
+# to read the shell script. Driver.py does not consume this file
+# directly today (the shell script is still the entry point); this
+# is provenance documentation, not a config file.
+#
+# To reproduce the sweep:
+#   bash experiments/eF_mixed_slo/scripts/run_path_beta4_scaled_sweep.sh
+#
+# Override any field via the same-named environment variable.
+
+vllm_fork:
+  env_var: SEER_VLLM_FORK
+  default_path: ../vllm-seer-fork
+  patch: seer/integration/vllm_patches/0001-add-eviction-order-hook.patch
+  upstream_pr: https://github.com/vllm-project/vllm/pull/42799
+
+model:
+  hf_id: meta-llama/Llama-2-7b-hf
+  max_model_len: 2048
+  dtype: float16
+
+workload:
+  type: multi_turn_chat
+  n_threads: 10        # N_THREADS
+  n_turns: 10          # N_TURNS
+  max_tokens: 64       # MAX_TOKENS per response
+  disable_prefix_cache: true
+  seeds: [0, 1, 2]
+
+slo:
+  chat_slo: P99=200ms
+
+policies:
+  - full
+  - streaming
+  - h2o
+  - snapkv
+  - quest
+  - seer
+
+runtime:
+  hbm_budget: 0.20
+  gpu_mem_util: 0.20    # gpu_memory_utilization passed to vllm.LLM
+  cuda_visible_devices: 0
+
+lap_decision_period:
+  env_var: SEER_LAP_DECISION_PERIOD
+  default: 1
+
+provenance:
+  expected_decode_steps_per_cell: 18800  # 10 turns x 10 threads x 64 x ~3 seeds (rough)
+  expected_wall_s_per_cell: 150          # see multiturn_summary.json:wall_s_mean
+  total_cells: 18                        # 6 policies x 3 seeds
+
+paper_outputs:
+  json: results_vllm_path_beta4_scaled/{policy}_s{seed}.json
+  summary: results_vllm_path_beta4_scaled/multiturn_summary.json
+  table: results_vllm_path_beta4_scaled/multiturn_slo_sweep.tex
+  per_seed_table: results_vllm_path_beta4_scaled/per_seed_table.tex

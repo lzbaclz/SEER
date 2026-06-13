@@ -1,0 +1,17 @@
+# TensorRT pin — verified working on the reference platform.
+#
+# Install with:
+#
+#   pip install --extra-index-url https://pypi.nvidia.com \
+#               -r requirements-trt.txt
+#
+# 10.6.0.post2 was the latest version that resolved metadata cleanly
+# from pypi.nvidia.com on 2026-05-08. Newer versions (10.7+) currently
+# advertise the wheels but their `tensorrt-cu12-libs` metadata is
+# broken — pip will retry-loop. If you already have TensorRT installed
+# system-wide, remove this file and SEER will pick up the existing
+# tensorrt module.
+
+tensorrt-cu12==10.6.0.post2
+tensorrt-cu12-libs==10.6.0.post2
+tensorrt-cu12-bindings==10.6.0.post2

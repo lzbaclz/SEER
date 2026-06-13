@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seer"
+version = "0.1.0"
+description = "SEER: schedulable KV-cache eviction and timing analysis for long-context LLM decoding"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.11"
+authors = [{name = "Anonymous"}]
+keywords = ["llm", "kv-cache", "real-time", "scheduling", "soft-real-time", "deadline-miss", "slo"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["seer*"]
+exclude = ["tests*", "experiments*", "paper*", "notes*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["data", "checkpoints", "paper", ".git"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+# E501 handled by formatter; B007/B904/B905 are mostly style nits in
+# experimental scripts that don't carry semantic risk; F841 is allowed
+# in experiments where intermediate variables aid debugging.
+ignore = ["E501", "B007", "B904", "B905", "B904", "E702"]
+
+[tool.ruff.lint.per-file-ignores]
+"experiments/**" = ["F841", "I001", "E402", "B004", "E731", "B023", "E702", "E701", "E741", "F401", "F541", "UP035"]
+"tests/**" = ["F841", "I001"]
+"seer/integration/vllm_forward_hook.py" = ["E402", "F841"]
+"seer/integration/vllm_connector.py" = ["F841", "B007"]
+"seer/integration/vllm_attention_batched_compute.py" = ["F841"]
+"seer/eval/runner.py" = ["F841"]
+"seer/eval/fault_injection.py" = ["B004"]
+"seer/timing/schedulability.py" = ["F841"]
